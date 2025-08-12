@@ -1,4 +1,4 @@
-# 🌀 Voice-Enabled Interactive Torus Deformer
+# 🌀 Interactive Torus Deformer
 
 A Streamlit app that creates 3D torus deformations to create dynamic shapes.
 
