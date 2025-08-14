@@ -7,7 +7,7 @@ A Streamlit app that creates 3D torus deformations to create dynamic shapes.
 1. **Clone the repository:**
    ```bash
    git clone <your-repo-url>
-   cd voice-torus-deformer
+   cd torus-deformation
    ```
 
 2. **Install dependencies:**
@@ -25,12 +25,11 @@ A Streamlit app that creates 3D torus deformations to create dynamic shapes.
 ### Basic Controls
 - **Major/Minor Divisions**: Control the resolution of the torus
 - **Major/Minor Radius**: Adjust the size and thickness
-- **Height Scale**: Control the Z-axis scaling
+- **Height**: Control the height of the torus
 
 ### Deformation Types
-- **Noise**: Perlin, Simplex, Worley, Voronoi, fBm, and Combined
-- **Twists**: Möbius twist and helical warp
-- **Spatial**: S-deformation for curved shapes
+- **Noise**: Random, Perlin, Worley, Starlike
+- **Twists**: Möbius twist, helical warp, saddle-like deformation
 - **Scaling**: Gradient and sine wave deformations
 - **Cross-section**: Modulation of the tube radius
 
