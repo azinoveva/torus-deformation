@@ -1,10 +1,9 @@
 import streamlit as st
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from mpl_toolkits.mplot3d import Axes3D
 import plotly.graph_objects as go
-import plotly.express as px
+import numpy as np
+from perlin_noise import PerlinNoise
+from pythonworley import worley
 
 # Page config
 st.set_page_config(
@@ -23,22 +22,26 @@ st.sidebar.header("🎛️ Deformation Controls")
 # Basic torus parameters
 st.sidebar.subheader("📐 Basic Torus")
 n_major = st.sidebar.slider("Major divisions", 20, 200, 80, 5)
-n_minor = st.sidebar.slider("Minor divisions", 8, 60, 20, 2)
+n_minor = st.sidebar.slider("Minor divisions", 10, 100, 30, 5)
 major_radius = st.sidebar.slider("Major radius (R)", 1.0, 8.0, 3.0, 0.1, help="Distance from center of hole to center of tube")
 minor_radius = st.sidebar.slider("Minor radius (r)", 0.2, 3.0, 1.0, 0.1, help="Radius of the tube cross-section")
 height_scale = st.sidebar.slider("Height scale", 0.1, 3.0, 1.0, 0.1, help="Scale factor for Z-axis height")
 
 # Noise parameters
-st.sidebar.subheader("Noise Deformations")
+st.sidebar.subheader("🎯 Noise Deformations")
 noise_enabled = st.sidebar.checkbox("Enable Noise", False)
 if noise_enabled:
     noise_type = st.sidebar.selectbox(
         "Noise Type",
-        ["Perlin", "Simplex-like", "Worley (Cellular)", "Voronoi", "Brownian Motion"]
+        ["Random", "Perlin", "Worley", "Spots"]
     )
-    noise_strength = st.sidebar.slider("Noise Strength", 0.0, 1.0, 0.3, 0.05)
-    noise_scale = st.sidebar.slider("Noise Scale", 1.0, 20.0, 5.0, 0.5)
-    noise_octaves = st.sidebar.slider("Octaves", 1, 8, 3, 1)
+    
+    # Common noise parameter
+    noise_scale = st.sidebar.slider("Noise Strength", 0.0, 1.0, 0.3, 0.05)
+    
+    # Perlin specific parameters
+    if noise_type is "Perlin":
+        noise_octaves = st.sidebar.slider("Octaves", 1, 8, 3, 1)
 
 # Twist deformations
 st.sidebar.subheader("🌀 Twist Deformations")
@@ -50,14 +53,13 @@ helical_warp_enabled = st.sidebar.checkbox("Enable Helical Warp", False)
 if helical_warp_enabled:
     helical_strength = st.sidebar.slider("Helical Warp Strength", 0.0, 5.0, 1.0, 0.1)
 
-# Spatial deformations
-st.sidebar.subheader("🌍 Spatial Deformations")
-s_deformation_enabled = st.sidebar.checkbox("Enable S-Deformation", False)
+s_deformation_enabled = st.sidebar.checkbox("Enable Saddle Deformation", False)
 if s_deformation_enabled:
-    s_strength = st.sidebar.slider("S-Deformation Strength", 0.0, 2.0, 0.8, 0.1)
+    s_strength = st.sidebar.slider("Saddle Deformation Strength", 0.0, 2.0, 0.8, 0.1)
 
-# Scaling deformations
-st.sidebar.subheader("📏 Scaling Deformations")
+# Spatial deformations
+st.sidebar.subheader("🌍 Scaling Deformations")
+
 gradient_scaling_enabled = st.sidebar.checkbox("Enable Gradient Scaling", False)
 if gradient_scaling_enabled:
     scale_min = st.sidebar.slider("Scale Min", 0.1, 1.0, 0.5, 0.05)
@@ -143,18 +145,14 @@ def generate_deformed_torus(n_major, n_minor, major_radius, minor_radius, height
     # Apply noise deformation last
     if kwargs.get('noise_enabled'):
         # Generate appropriate noise based on type
-        if kwargs['noise_type'] == "Perlin":
-            noise = generate_perlin_noise((n_minor, n_major), kwargs['noise_scale'], kwargs['noise_octaves'])
-        elif kwargs['noise_type'] == "Simplex-like":
-            noise = generate_simplex_noise((n_minor, n_major), kwargs['noise_scale'], kwargs['noise_octaves'])
-        elif kwargs['noise_type'] == "Worley (Cellular)":
-            noise = generate_worley_noise((n_minor, n_major), 25, 1.0)
-        elif kwargs['noise_type'] == "Voronoi":
-            noise = generate_voronoi_noise((n_minor, n_major), 20, 0.3)
-        elif kwargs['noise_type'] == "Brownian Motion":
-            noise = generate_fbm_noise((n_minor, n_major), kwargs['noise_octaves'])
-        
-        noise = (noise - 0.5) * 2
+        if kwargs['noise_type'] == "Random":
+            noise = generate_random_noise((n_minor, n_major))
+        elif kwargs['noise_type'] == "Perlin":
+            noise = generate_perlin_noise((n_minor, n_major), kwargs['noise_octaves'])
+        elif kwargs['noise_type'] == "Worley":
+            noise = generate_worley_noise((n_minor, n_major))
+        elif kwargs['noise_type'] == "Spots":
+            noise = generate_star_noise((n_minor, n_major))
         
         # Calculate normals for noise displacement
         normals = np.stack((
@@ -164,9 +162,9 @@ def generate_deformed_torus(n_major, n_minor, major_radius, minor_radius, height
         ), axis=2)
         
         # Apply noise displacement with proper wrapping
-        X += normals[:,:,0] * kwargs['noise_strength'] * noise
-        Y += normals[:,:,1] * kwargs['noise_strength'] * noise
-        Z += normals[:,:,2] * kwargs['noise_strength'] * noise * height_scale
+        X += normals[:,:,0] * kwargs['noise_scale'] * noise
+        Y += normals[:,:,1] * kwargs['noise_scale'] * noise
+        Z += normals[:,:,2] * kwargs['noise_scale'] * noise * height_scale
         
         # Ensure seamless wrapping by enforcing periodicity
         # For major ring (U direction) - wrap around at 2π
@@ -181,48 +179,45 @@ def generate_deformed_torus(n_major, n_minor, major_radius, minor_radius, height
     
     return X, Y, Z
 
-# Noise generation functions (simplified versions)
-def generate_perlin_noise(shape, scale, octaves):
-    np.random.seed(42)
-    noise = np.random.rand(*shape)
-    for _ in range(octaves-1):
-        noise += np.random.rand(*shape) * 0.5
-    return noise / (1 + 0.5 * (octaves-1))
+# Noise generation functions with proper scale implementation
+def generate_perlin_noise(shape, octaves, seed=None):
+    if not seed:
+        seed = np.random.randint(1, 1000000)
+    noise_generator = PerlinNoise(octaves=octaves, seed=seed)
+    noise = np.array([[noise_generator([i / shape[0], j / shape[1]]) for j in range(shape[1])] for i in range(shape[0])])
+    return noise
 
-def generate_simplex_noise(shape, scale, octaves):
-    # Simplified simplex-like noise
-    np.random.seed(42)
-    noise = np.random.rand(*shape)
-    for _ in range(octaves-1):
-        noise += np.random.rand(*shape) * 0.6
-    return noise / (1 + 0.6 * (octaves-1))
+def generate_random_noise(shape, seed=None):
+    if not seed:
+        seed = np.random.randint(1, 1000000)
+    noise = np.random.rand(shape[0], shape[1])
+    return noise
 
-def generate_worley_noise(shape, num_points, scale):
-    np.random.seed(42)
-    points = np.random.rand(num_points, 2) * np.array(shape)
-    noise = np.zeros(shape)
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            distances = np.sqrt((i - points[:, 0])**2 + (j - points[:, 1])**2)
-            noise[i, j] = np.min(distances)
-    return (noise - noise.min()) / (noise.max() - noise.min())
+def generate_worley_noise(shape, seed=None):
+    if not seed:
+        seed = np.random.randint(1, 1000000)
+    shape = (int(shape[1]/10), int(shape[0]/10))
+    noise, cells = worley(shape, dens=10, seed=seed)
+    noise = noise[0].T
+    return noise
 
-def generate_voronoi_noise(shape, num_cells, randomness):
-    np.random.seed(42)
-    centers = np.random.rand(num_cells, 2) * np.array(shape)
-    noise = np.zeros(shape)
-    for i in range(shape[0]):
-        for j in range(shape[1]):
-            distances = np.sqrt((i - centers[:, 0])**2 + (j - centers[:, 1])**2)
-            noise[i, j] = np.min(distances)
-    return 1 - (noise - noise.min()) / (noise.max() - noise.min())
+def generate_star_noise(shape, seed=None):
+    # Make rectangular grid
+    x, y = np.arange(shape[0]), np.arange(shape[1])
+    x, y = np.meshgrid(x, y, indexing="ij")
 
-def generate_fbm_noise(shape, octaves):
-    np.random.seed(42)
-    noise = np.random.rand(*shape)
-    for _ in range(octaves-1):
-        noise += np.random.rand(*shape) * 0.7
-    return noise / (1 + 0.7 * (octaves-1))
+    # Generate noise: random displacements r at random angles phi
+    np.random.seed(0)
+    phi = np.random.uniform(0, 2 * np.pi, x.shape)
+    r = np.random.uniform(0, 0.5, x.shape)
+
+    # Shrink star size to keep it inside its cell.
+    # Alse, we want more small stars - for the background effect.
+    # To do that we rescale displacements: r -> 1/2 - 0.001 / r.
+    r = np.clip(0.5 - 1e-3 / r, 0, None)
+    size = 20 * (0.5 - r) - 0.04
+
+    return size
 
 # Main app - automatically update when parameters change
 # Collect all parameters
@@ -240,14 +235,13 @@ params = {
     's_deformation_enabled': s_deformation_enabled,
     's_strength': s_strength if s_deformation_enabled else 0,
     'mobius_twist_enabled': mobius_twist_enabled,
-    'mobius_strength': mobius_strength if mobius_twist_enabled else 0,
+    'mobius_strength': mobius_twist_enabled if mobius_twist_enabled else 0,
     'helical_warp_enabled': helical_warp_enabled,
     'helical_strength': helical_strength if helical_warp_enabled else 0,
     'noise_enabled': noise_enabled,
     'noise_type': noise_type if noise_enabled else "Perlin",
-    'noise_strength': noise_strength if noise_enabled else 0,
-    'noise_scale': noise_scale if noise_enabled else 5,
-    'noise_octaves': noise_octaves if noise_enabled else 3,
+    'noise_scale': noise_scale if noise_enabled else 0.3,
+    'noise_octaves': noise_octaves if noise_enabled and noise_type == "Perlin" else 1,
 }
 
 # Generate torus automatically
@@ -278,15 +272,11 @@ with st.spinner("Generating deformed torus..."):
         ),
         width=800,
         height=600
-    )
-    
+    )  
     
     # Display plot
     plot_result = st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": True})
     
-
-    
-
 
 # Instructions
 st.sidebar.markdown("---")
