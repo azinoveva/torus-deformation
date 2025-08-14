@@ -99,9 +99,9 @@ Where:
 - **f** = Frequency (integer)
 - **φ** = Phase shift [0, 2π]
 
-### 4. S-Deformation (Spatial Bending)
+### 4. Saddle-Like Deformation (Spatial Bending)
 
-Bends the torus into an S-shape by adding displacement functions:
+Bends the torus into a saddle shape by adding displacement functions:
 
 ```
 bend_y(u) = S · (sin(2u) + 0.3·sin(4u))
@@ -113,7 +113,7 @@ Z_s = Z_base + bend_z(u)
 ```
 
 Where:
-- **S** = S-deformation strength [0, 2]
+- **S** = deformation strength [0, 2]
 
 ### 5. Möbius Twist
 
@@ -145,6 +145,8 @@ Where:
 
 ### 7. Noise Deformations
 
+#### Random Noise
+
 #### Perlin Noise
 ```
 noise(x,y) = Σ(octave=1 to N) amplitude_octave · noise_octave(x·freq_octave, y·freq_octave)
@@ -158,24 +160,6 @@ noise(x,y) = min(distance((x,y), feature_point_i)) for all i
 distance = √((x-x_i)² + (y-y_i)²)
 ```
 
-#### Voronoi Noise
-```
-noise(x,y) = min(distance((x,y), cell_center_i)) for all i
-```
-
-#### Fractal Brownian Motion (fBm)
-```
-fBm(x,y) = Σ(octave=1 to N) amplitude_octave · noise_octave(x·freq_octave, y·freq_octave)
-amplitude_octave = gain^(octave-1)
-freq_octave = lacunarity^(octave-1)
-```
-
-## 🔧 Technical Implementation
-
-### Real-time Updates
-- **Streamlit reactive framework** automatically re-runs when parameters change
-- **NumPy vectorized operations** for efficient 3D calculations
-- **Plotly 3D rendering** with hardware acceleration
-- **Session state management** for persistent user settings
+#### Star-Like Spot Noise
 
 Built using Streamlit, NumPy, Plotly, and WebRTC
