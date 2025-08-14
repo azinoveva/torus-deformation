@@ -161,4 +161,4 @@ distance = √((x-x_i)² + (y-y_i)²)
 
 #### Star-Like Spot Noise
 
-Built using Streamlit, NumPy, Plotly, and WebRTC
+Built using Streamlit, NumPy, and Plotly
