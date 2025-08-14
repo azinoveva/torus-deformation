@@ -40,7 +40,7 @@ if noise_enabled:
     noise_scale = st.sidebar.slider("Noise Strength", 0.0, 1.0, 0.3, 0.05)
     
     # Perlin specific parameters
-    if noise_type is "Perlin":
+    if noise_type == "Perlin":
         noise_octaves = st.sidebar.slider("Octaves", 1, 8, 3, 1)
 
 # Twist deformations
@@ -261,16 +261,12 @@ with st.spinner("Generating deformed torus..."):
     fig.update_layout(
         title="Deformed Torus",
         scene=dict(
-            xaxis_title="X",
-            yaxis_title="Y", 
-            zaxis_title="Z",
-            aspectmode='cube',
-            # Lock axis ranges for consistent viewing
-            xaxis=dict(range=[-10, 10], autorange=False),
-            yaxis=dict(range=[-10, 10], autorange=False),
-            zaxis=dict(range=[-10, 10], autorange=False)
+            # Lock axis aspect ratio for consistent scaling between axes
+            xaxis=dict(autorange=True),
+            yaxis=dict(autorange=True),
+            zaxis=dict(autorange=False, range=[-5, 5])
         ),
-        width=800,
+        width=1000,
         height=600
     )  
     
