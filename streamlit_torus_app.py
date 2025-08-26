@@ -5,6 +5,7 @@ import numpy as np
 from perlin_noise import PerlinNoise
 from pythonworley import worley
 import requests
+from utils import map_vad
 
 # Page config
 st.set_page_config(
@@ -52,7 +53,13 @@ if send and audio_file:
         st.error(f"Request failed: {response.status_code}")
         st.text(response.text)
 
-#st.text(st.session_state['response'])
+with st.sidebar:
+    # write vad to sidebar
+    if use_single_VAD and st.session_state['response']:
+        col1, col2, col3 = st.columns(3)
+        col1.write(f"Valence: {st.session_state['response'].get('data', {}).get('valence', 0)[0]}")
+        col2.write(f"Arousal: {st.session_state['response'].get('data', {}).get('arousal', 0)[0]}")
+        col3.write(f"Dominance: {st.session_state['response'].get('data', {}).get('dominance', 0)[0]}")
 
 st.sidebar.markdown("---")
 st.sidebar.header("🎛️ Deformation Controls")
@@ -72,6 +79,8 @@ envelope_enabled = st.sidebar.checkbox("Enable Envelope Mapping", False)
 if envelope_enabled:
     envelope_strength = st.sidebar.slider("Envelope Strength", 0.0, 1.0, 0.5, 0.05)
 
+st.sidebar.markdown("---")
+
 # Arousal mapping
 st.sidebar.subheader("🔥 Arousal Mapping (Major Radius xz-mapping)")
 arousal_enabled = st.sidebar.checkbox("Enable Arousal Mapping", False)
@@ -80,6 +89,8 @@ if arousal_enabled and not use_single_VAD:
 elif arousal_enabled and use_single_VAD:
     st.sidebar.warning("⚠️ Arousal mapping only available when Single VAD is disabled")
     arousal_enabled = False
+
+st.sidebar.markdown("---")
 
 # Noise parameters
 st.sidebar.subheader("🎯 Noise Deformations")
@@ -92,24 +103,52 @@ if noise_enabled:
     
     # Common noise parameter
     noise_scale = st.sidebar.slider("Noise Strength", 0.0, 1.0, 0.3, 0.05)
-    
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        noise_scale = map_vad(noise_scale, key='Noise Strength', output_range=(0, 1))
+
     # Perlin specific parameters
     if noise_type == "Perlin":
         noise_octaves = st.sidebar.slider("Octaves", 1, 8, 3, 1)
+
+st.sidebar.markdown("---")
 
 # Twist deformations
 st.sidebar.subheader("🌀 Twist Deformations")
 mobius_twist_enabled = st.sidebar.checkbox("Enable Möbius Twist", False)
 if mobius_twist_enabled:
     mobius_strength = st.sidebar.slider("Möbius Twist Strength", 0.0, 3.0, 1.0, 0.1)
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        mobius_strength = map_vad(mobius_strength, key='Mobius Twist Strength', output_range=(0.0, 3.0))
+
+st.sidebar.markdown("---")
 
 helical_warp_enabled = st.sidebar.checkbox("Enable Helical Warp", False)
 if helical_warp_enabled:
     helical_strength = st.sidebar.slider("Helical Warp Strength", 0.0, 5.0, 1.0, 0.1)
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        helical_strength = map_vad(helical_strength, key='Helical Warp Strength', output_range=(0.0, 5.0))
+
+st.sidebar.markdown("---")
 
 s_deformation_enabled = st.sidebar.checkbox("Enable Saddle Deformation", False)
 if s_deformation_enabled:
     s_strength = st.sidebar.slider("Saddle Deformation Strength", 0.0, 2.0, 0.8, 0.1)
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        s_strength = map_vad(s_strength, key='Saddle Deformation Strength', output_range=(0.0, 2.0))
+
+st.sidebar.markdown("---")
 
 # Spatial deformations
 st.sidebar.subheader("🌍 Scaling Deformations")
@@ -118,19 +157,44 @@ gradient_scaling_enabled = st.sidebar.checkbox("Enable Gradient Scaling", False)
 if gradient_scaling_enabled:
     scale_min = st.sidebar.slider("Scale Min", 0.1, 1.0, 0.5, 0.05)
     scale_max = st.sidebar.slider("Scale Max", 1.0, 3.0, 1.5, 0.05)
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        scale_min = map_vad(scale_min, key='Scale Min', output_range=(.1, 1))
+        scale_max = map_vad(scale_max, key='Scale Max', output_range=(1, 3))
 
+st.sidebar.markdown("---")
 sine_wave_enabled = st.sidebar.checkbox("Enable Sine Wave Deformation", False)
 if sine_wave_enabled:
     sine_amplitude = st.sidebar.slider("Sine Amplitude", 0.0, 1.0, 0.5, 0.05)
     sine_frequency = st.sidebar.slider("Sine Frequency", 1, 8, 3, 1)
     sine_phase = st.sidebar.slider("Sine Phase", 0.0, 2*np.pi, 0.0, 0.1)
 
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        sine_frequency = map_vad(sine_frequency, key='Sine Frequency', output_range=(1, 8))
+
+st.sidebar.markdown("---")
+
 # Cross-section modulation
 st.sidebar.subheader("🔴 Cross-section Modulation")
 cross_section_enabled = st.sidebar.checkbox("Enable Cross-section Modulation", False)
+
 if cross_section_enabled:
     mod_amplitude = st.sidebar.slider("Modulation Amplitude", 0.0, 1.0, 0.3, 0.05)
+    
+    # Initialize mod_frequency from slider
     mod_frequency = st.sidebar.slider("Modulation Frequency", 1, 20, 5, 1)
+    
+    # VAD mapping (only when Single VAD is enabled)
+    if not use_single_VAD:
+        st.sidebar.warning("⚠️ VAD mapping only available when Single VAD is enabled")
+    else:
+        mod_frequency = map_vad(mod_frequency, key='Modulation Frequency', output_range=(1, 20))
+
 
 def generate_deformed_torus(n_major, n_minor, major_radius, minor_radius, height_scale, **kwargs):
     """Generate torus with all applied deformations"""
@@ -422,7 +486,7 @@ params = {
     's_deformation_enabled': s_deformation_enabled,
     's_strength': s_strength if s_deformation_enabled else 0,
     'mobius_twist_enabled': mobius_twist_enabled,
-    'mobius_strength': mobius_twist_enabled if mobius_twist_enabled else 0,
+    'mobius_strength': mobius_strength if mobius_twist_enabled else 0,
     'helical_warp_enabled': helical_warp_enabled,
     'helical_strength': helical_strength if helical_warp_enabled else 0,
     'noise_enabled': noise_enabled,
